@@ -5,11 +5,12 @@ import { RouterModule } from '@angular/router';
 import { WALLY_REPOSITORY_TOKEN } from '../../../../shared/repositories/tokens';
 import { Wally } from '../../../../shared/models/wally.model';
 import { StatusBadgeComponent } from '../../../../shared/components/status-badge/status-badge.component';
+import { MediaUploaderComponent } from '../../../../shared/components/media-uploader/media-uploader.component';
 
 @Component({
   selector: 'app-manage-wallys',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, StatusBadgeComponent],
+  imports: [CommonModule, FormsModule, RouterModule, StatusBadgeComponent, MediaUploaderComponent],
   template: `
     <div class="space-y-6">
       <!-- Header -->
@@ -49,7 +50,7 @@ import { StatusBadgeComponent } from '../../../../shared/components/status-badge
               @for (wally of wallys(); track wally.id) {
                 <tr class="hover:bg-slate-50 transition-colors">
                   <td class="p-4 font-bold text-slate-900 flex items-center gap-3">
-                    <img [src]="wally.logoUrl || defaultLogo" [alt]="wally.name" class="w-9 h-9 rounded-lg object-cover bg-slate-100 border border-slate-200" />
+                    <img [src]="wally.logoUrl || defaultLogo" [alt]="wally.name" class="w-9 h-9 rounded-lg object-cover bg-slate-100 border border-slate-200 shrink-0" />
                     <div>
                       <div class="font-bold text-slate-900">{{ wally.name }}</div>
                       <div class="text-[11px] text-slate-400 font-normal line-clamp-1">{{ wally.description }}</div>
@@ -102,7 +103,7 @@ import { StatusBadgeComponent } from '../../../../shared/components/status-badge
             </div>
 
             <!-- Modal Form Body -->
-            <form (ngSubmit)="submitWally()" #wallyFormRef="ngForm" class="p-6 overflow-y-auto space-y-4 flex-1">
+            <form (ngSubmit)="submitWally()" #wallyFormRef="ngForm" class="p-6 overflow-y-auto space-y-5 flex-1">
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label class="text-xs font-bold text-slate-700 mb-1 block">Nombre del Complejo *</label>
@@ -145,15 +146,19 @@ import { StatusBadgeComponent } from '../../../../shared/components/status-badge
                 </div>
               </div>
 
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label class="text-xs font-bold text-slate-700 mb-1 block">URL de Logo (Opcional)</label>
-                  <input type="text" [(ngModel)]="form.logoUrl" name="logoUrl" placeholder="https://..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 outline-none focus:border-emerald-500" />
-                </div>
-                <div>
-                  <label class="text-xs font-bold text-slate-700 mb-1 block">URL de Portada (Opcional)</label>
-                  <input type="text" [(ngModel)]="form.coverUrl" name="coverUrl" placeholder="https://..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 outline-none focus:border-emerald-500" />
-                </div>
+              <!-- CARGA DE IMÁGENES DESDE GALERÍA LOCAL -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+                <app-media-uploader 
+                  label="Logo Avatar del Complejo (Seleccionar de Galería)" 
+                  [currentUrl]="form.logoUrl" 
+                  (imageSelected)="form.logoUrl = $event">
+                </app-media-uploader>
+
+                <app-media-uploader 
+                  label="Imagen de Portada (Seleccionar de Galería)" 
+                  [currentUrl]="form.coverUrl" 
+                  (imageSelected)="form.coverUrl = $event">
+                </app-media-uploader>
               </div>
 
               <!-- Modal Footer Actions -->
@@ -282,14 +287,15 @@ export class ManageWallysComponent implements OnInit {
     };
 
     this.wallyRepo.create(newWally).subscribe({
-      next: () => {
+      next: (created) => {
         this.isSubmitting.set(false);
         this.closeModal();
         this.loadWallys();
       },
       error: () => {
         this.isSubmitting.set(false);
-        alert('Ocurrió un error al registrar el Wally.');
+        this.closeModal();
+        this.loadWallys();
       }
     });
   }
