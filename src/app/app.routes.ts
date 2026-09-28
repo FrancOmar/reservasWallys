@@ -42,7 +42,7 @@ export const routes: Routes = [
       },
       {
         path: 'wallys',
-        loadComponent: () => import('./features/super-admin/pages/dashboard/dashboard.component').then(m => m.SuperAdminDashboardComponent)
+        loadComponent: () => import('./features/super-admin/pages/manage-wallys/manage-wallys.component').then(m => m.ManageWallysComponent)
       },
       {
         path: 'administradores',
