@@ -1,6 +1,6 @@
 export const environment = {
   production: false,
-  useFirebase: true,
+  useFirebase: false, // Cambiado a false para evitar bloqueos por AdBlocker/Brave Shields en desarrollo local
   firebase: {
     apiKey: "AIzaSyAB5h3geCeBTWrg1__4_iX9cFHRd8R1CeE",
     authDomain: "reservaswallys.firebaseapp.com",
