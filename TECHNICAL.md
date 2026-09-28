@@ -1,8 +1,8 @@
 # 🏗️ DOCUMENTACIÓN TÉCNICA Y ARQUITECTURA DE SOFTWARE
 
-## SISTEMA WALLY — Frontend Multi-Tenant en Angular 21
+## SISTEMA WALLY — Frontend Multi-Tenant en Angular 21 con Firebase Integration
 
-Este documento detalla la arquitectura de software, principios de diseño, patrones de construcción, modelo multi-tenant y la estrategia de persistencia desacoplada implementados en el frontend de **Sistema Wally**.
+Este documento detalla la arquitectura de software, principios de diseño, patrones de construcción, modelo multi-tenant e integración oficial con **Firebase** en el frontend de **Sistema Wally**.
 
 ---
 
@@ -32,204 +32,82 @@ La aplicación sigue los principios de **Clean Architecture** (Arquitectura Limp
                                   │
                                   ▼
 +-----------------------------------------------------------------------+
-| 5. Infrastructure Layer (Mock Repositories → Supabase / Firebase)     |
+| 5. Infrastructure Layer (Firebase SDK & Firestore Repositories)       |
 +-----------------------------------------------------------------------+
 ```
 
-### Características Clave:
-- **Zero-Direct Backend Coupling:** Ningún componente de interfaz de usuario (`Component`) importa ni conoce APIs directas de bases de datos o servicios externos.
-- **Inversión de Dependencias (DIP):** Los componentes dependen únicamente de abstracciones (`Interfaces` e `InjectionTokens`).
-
 ---
 
-## 2. Estructura de Directorios (Feature-Based Architecture)
+## 2. Configuración e Integración con Firebase
 
-```
-src/
-├── app/
-│   ├── core/                        # Singleton Services, Guards, Interceptors & Layouts
-│   │   ├── auth/                    # AuthService (Signal-based auth state)
-│   │   ├── guards/                  # AuthGuard, RoleGuard
-│   │   ├── layout/                  # AdminLayoutComponent, PublicLayoutComponent
-│   │   └── tenant/                  # CurrentWallyContextService (Tenant context manager)
-│   │
-│   ├── shared/                      # Elementos globales reutilizables
-│   │   ├── components/              # Design System UI (StatusBadge, WallyCard, CourtCard)
-│   │   ├── models/                  # Domain Interfaces (Wally, Court, Reservation, Client)
-│   │   └── repositories/            # Contratos de Repositorios (BaseRepository, Tokens)
-│   │
-│   ├── infrastructure/              # Implementaciones de Infraestructura
-│   │   └── mock/                    # Mock Repositories con latencia asíncrona simulada (RxJS)
-│   │       ├── mock-data.ts         # Dataset inicial estructurado
-│   │       ├── mock-wally.repository.ts
-│   │       ├── mock-court.repository.ts
-│   │       ├── mock-reservation.repository.ts
-│   │       └── mock-client.repository.ts
-│   │
-│   ├── features/                    # Módulos Lazy-Loaded por funcionalidad
-│   │   ├── auth/                    # Página de Login / Selector de rol
-│   │   ├── public-portal/           # Directorio público (/wallys) y Portal (/wally/:slug)
-│   │   ├── super-admin/             # Dashboard SaaS Global
-│   │   ├── admin-cms/               # Dashboard CMS del Complejo y Personalizador
-│   │   ├── calendar-agenda/         # Agenda visual interactiva por horarios
-│   │   ├── courts/                  # Gestión CRUD de canchas
-│   │   ├── reservations/            # Listado e historial de reservas
-│   │   └── clients/                 # Directorio de clientes
-│   │
-│   ├── app.config.ts                # Proveedores globales DI y Rutas
-│   ├── app.routes.ts                # Definición de Enrutamiento
-│   └── app.ts                       # Componente Raíz (<router-outlet>)
-│
-└── styles.css                       # Design Tokens, Tailwind CSS v4 e Importaciones
-```
+El proyecto incluye la configuración oficial de Firebase JS SDK v10+ conectada a las credenciales del proyecto **`reservaswallys`**.
 
----
-
-## 3. Modelo Multi-Tenant (Inquilinos Aislados)
-
-### 🔑 Aislamiento por `wallyId`
-Toda entidad perteneciente a un establecimiento deportivo (canchas, reservas, clientes, fotografías, tarifas) contiene obligatoriamente la propiedad de aislamiento:
-
+### 2.1 Archivos de Entorno ([`src/environments/environment.ts`](file:///d:/Proyectos/reservas-wallys/src/environments/environment.ts))
 ```typescript
-export interface Court {
-  id: string;
-  wallyId: string; // Key de aislamiento Multi-Tenant
-  name: string;
-  // ...
-}
-```
-
-### 🔄 Contexto de Inquilino Activo (`CurrentWallyContextService`)
-En el panel administrativo, `CurrentWallyContextService` gestiona el estado reactivo del complejo seleccionado mediante Angular Signals:
-
-```typescript
-@Injectable({ providedIn: 'root' })
-export class CurrentWallyContextService {
-  readonly currentWallyId = signal<string | null>('wally-arena-sport');
-  readonly currentWally = signal<Wally | null>(null);
-
-  setWally(wallyId: string): void {
-    this.currentWallyId.set(wallyId);
-    this.loadWally(wallyId);
+export const environment = {
+  production: false,
+  useFirebase: true,
+  firebase: {
+    apiKey: "AIzaSyAB5h3geCeBTWrg1__4_iX9cFHRd8R1CeE",
+    authDomain: "reservaswallys.firebaseapp.com",
+    projectId: "reservaswallys",
+    storageBucket: "reservaswallys.firebasestorage.app",
+    messagingSenderId: "1078651487465",
+    appId: "1:1078651487465:web:ffa5af7f070fe44ed25c78",
+    measurementId: "G-87EYVZFV02"
   }
-}
+};
 ```
-Si un `ADMIN` tiene asignados múltiples complejos, un dropdown en el Topbar le permite cambiar de contexto en tiempo real sin recargar la página.
+
+### 2.2 Módulo de Inicialización ([`src/app/core/config/firebase.config.ts`](file:///d:/Proyectos/reservas-wallys/src/app/core/config/firebase.config.ts))
+Inicializa las instancias de Firebase App, Authentication, Firestore Database y Google Analytics.
+
+### 2.3 Repositorios Concretos en Firestore ([`src/app/infrastructure/firebase/`](file:///d:/Proyectos/reservas-wallys/src/app/infrastructure/firebase/))
+- `FirebaseWallyRepository` (Colección `wallys`)
+- `FirebaseCourtRepository` (Colección `courts`)
+- `FirebaseReservationRepository` (Colección `reservations`)
+- `FirebaseClientRepository` (Colección `clients`)
 
 ---
 
-## 4. Matriz de Roles y Permisos (RBAC)
+## 3. Inyección de Dependencias en `app.config.ts`
 
-El sistema soporta tres roles principales con la siguiente matriz de accesos:
-
-| Funcionalidad / Módulo | `SUPER_ADMIN` | `ADMIN` (Wally Owner) | `CLIENT` (Público) |
-| --- | :---: | :---: | :---: |
-| **Acceso a Métricas Globales SaaS** | ✅ | ❌ | ❌ |
-| **Alta / Baja de Wallys en la Plataforma** | ✅ | ❌ | ❌ |
-| **Gestión de Administradores** | ✅ | ❌ | ❌ |
-| **Gestión de Canchas del Wally** | ✅ | ✅ (Sus complejos) | ❌ (Solo lectura) |
-| **Agenda y Registro de Reservas** | ✅ | ✅ (Sus complejos) | ❌ (Consulta disponibilidad) |
-| **Gestión de Clientes** | ✅ | ✅ | ❌ |
-| **Edición CMS (Logo, Portada, Horarios)** | ✅ | ✅ (Su complejo) | ❌ (Solo lectura) |
-| **Consulta Pública de Disponibilidad** | ✅ | ✅ | ✅ (`/wally/:slug`) |
-
----
-
-## 5. Patrón Repositorio e Inyección de Dependencias (DI)
-
-### 5.1 Interfaces de Contrato
-Los contratos definen las operaciones asíncronas utilizando `Observable` de RxJS:
+Los componentes visuales consumen las abstracciones del repositorio inyectadas mediante `InjectionToken` en `app.config.ts`:
 
 ```typescript
-export interface WallyRepository extends BaseRepository<Wally> {
-  findBySlug(slug: string): Observable<Wally | null>;
-  findActiveWallys(): Observable<Wally[]>;
-}
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideZoneChangeDetection({ eventCoalescing: true }),
+    provideRouter(routes, withComponentInputBinding()),
+    provideAnimations(),
+
+    // Inyección de Repositorios de Firebase
+    { provide: WALLY_REPOSITORY_TOKEN, useClass: FirebaseWallyRepository },
+    { provide: COURT_REPOSITORY_TOKEN, useClass: FirebaseCourtRepository },
+    { provide: RESERVATION_REPOSITORY_TOKEN, useClass: FirebaseReservationRepository },
+    { provide: CLIENT_REPOSITORY_TOKEN, useClass: FirebaseClientRepository }
+  ]
+};
 ```
 
-### 5.2 Dependency Injection Tokens
-Los tokens desacoplan la interfaz visual de la clase concreta:
+---
+
+## 4. Modelo Multi-Tenant (Inquilinos Aislados en Firestore)
+
+Toda consulta e inserción realizada a Firestore vincula la propiedad `wallyId`:
 
 ```typescript
-export const WALLY_REPOSITORY_TOKEN = new InjectionToken<WallyRepository>('WallyRepository');
-export const COURT_REPOSITORY_TOKEN = new InjectionToken<CourtRepository>('CourtRepository');
-export const RESERVATION_REPOSITORY_TOKEN = new InjectionToken<ReservationRepository>('ReservationRepository');
-export const CLIENT_REPOSITORY_TOKEN = new InjectionToken<ClientRepository>('ClientRepository');
+// Ejemplo de query en Firestore aislada por Inquilino (Tenant)
+const colRef = collection(firebaseDb, 'reservations');
+const q = query(colRef, where('wallyId', '==', activeWallyId), where('date', '==', selectedDate));
 ```
 
 ---
 
-## 6. Estrategia de Migración Mock → Supabase / Firebase
+## 5. Verificación de Compilación
 
-Actualmente la aplicación utiliza implementaciones **Mock** (`MockWallyRepository`, `MockCourtRepository`, etc.) que simulan latencia de red (`delay(200)`).
-
-### 🚀 Cómo migrar a Supabase o Firebase en el futuro
-
-Cuando se desarrolle el backend o la persistencia real:
-
-1. **Crear las clases de infraestructura real:**
-   ```typescript
-   // src/app/infrastructure/supabase/supabase-wally.repository.ts
-   @Injectable()
-   export class SupabaseWallyRepository implements WallyRepository {
-     // Implementación usando @supabase/supabase-js
-   }
-   ```
-
-2. **Sustituir el proveedor en `app.config.ts`:**
-   ```typescript
-   // src/app/app.config.ts
-   export const appConfig: ApplicationConfig = {
-     providers: [
-       // ANTES (Fase Prototipo / Frontend pure):
-       // { provide: WALLY_REPOSITORY_TOKEN, useClass: MockWallyRepository },
-
-       // DESPUÉS (Fase Producción Backend):
-       { provide: WALLY_REPOSITORY_TOKEN, useClass: SupabaseWallyRepository },
-       { provide: COURT_REPOSITORY_TOKEN, useClass: SupabaseCourtRepository },
-       { provide: RESERVATION_REPOSITORY_TOKEN, useClass: SupabaseReservationRepository }
-     ]
-   };
-   ```
-
-**¡Resultado!** No será necesario modificar una sola línea de código en los componentes visuales, páginas o guardias de la aplicación.
-
----
-
-## 7. Manejo de Estado Reactivo (Angular Signals)
-
-Se utiliza el sistema nativo de **Signals** de Angular para un rendimiento óptimo y libre de sobrecarga de zona:
-
-- `signal()`: Estado mutable local y global.
-- `computed()`: Valores derivados computados automáticamente.
-- `@if` / `@for`: Nuevo flujo de control reactivo nativo de Angular 21.
-
-Ejemplo en `AuthService`:
-```typescript
-readonly currentUser = signal<User | null>(MOCK_USERS[1]);
-readonly isAuthenticated = computed(() => !!this.currentUser());
-readonly currentRole = computed(() => this.currentUser()?.role || null);
-```
-
----
-
-## 8. Sistema de Diseño e Identidad Visual
-
-- **Paleta de Colores (Design Tokens en `src/styles.css`):**
-  - Azul Noche Profundo: `--color-brand-dark: #0F172A`
-  - Verde Energético Césped: `--color-brand-accent: #10B981`
-  - Fondo Estándar: `--color-bg-app: #F8FAFC`
-- **Tipografía:** *Outfit* (Encabezados deportivos) + *Inter* (Cuerpo de texto legible).
-- **Componentes UI:** PrimeNG (Iconos `PrimeIcons`, estructura base) + Tailwind CSS v4 (`@import 'tailwindcss';`).
-
----
-
-## 9. Verificación de Compilación
-
-La compilación se verifica mediante la CLI de Angular:
-
+Compilación oficial verificada con la CLI de Angular:
 ```bash
 npx ng build
 ```
-
-Bundle generado en `dist/reservas-wallys` libre de errores de TypeScript y plantillas HTML.
+Bundle generado exitosamente en `dist/reservas-wallys`.
