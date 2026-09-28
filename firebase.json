@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "dist/reservas-wallys",
+    "public": "dist/reservas-wallys/browser",
     "ignore": [
       "firebase.json",
       "**/.*",
